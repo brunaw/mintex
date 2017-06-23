@@ -1,0 +1,1487 @@
+---
+title: "Rock in Rio"
+output:  
+  flexdashboard::flex_dashboard:
+    theme: flatly
+    orientation: rows
+    vertical_layout: scroll
+    source_code: embed
+    runtime: shiny
+runtime: shiny
+---
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny) 
+library(shinydashboard)
+library(markdown)
+library(knitr)
+
+opts_chunk$set(fig.path='figure/graphics-', 
+                 cache.path='cache/graphics-', 
+                 fig.align='center',
+                 external=TRUE,
+                 echo=TRUE,
+                 warning=FALSE,
+                 message=FALSE,
+                 fig.pos='H'
+                )
+  a4width<- 11.7
+  a4height<- 11.7
+
+```
+
+Introdução
+=======================================================================
+Row
+------------------------------------------------------------------------
+
+### O festival
+
+O Rock in Rio é um festival de música Brasileiro, comandado pelo empresário Roberto Medina, que teve sua primeira edição em 1985. Originalmente, foi organizado no Rio de Janeiro, o que explica seu nome. O festival já teve 17 edições, sendo seis delas no Brasil, sete em Portugal, três na Espanha e um nos Estados Unidos. Hoje, ele está entre os 10 melhores festivais de música do mundo, estando em oitavo lugar. 
+
+Em 2017, o Rock in Rio irá acontecer nos dias 15, 16, 17, 22, 23 e 24 
+de  Setembro. Toda a divulgação sobre os detalhes do evento está sendo 
+publicada em redes sociais, principalmente o Facebook. Dessa forma, 
+oa anúncios das bandas que vêm para o festival esse ano foram feitos
+em posts do Facebook. 
+
+Estes posts dos quais estamos falando são livres para qualquer pessoa comentar, curtir ou "reagir". Assim, cada postagem é uma boa fonte de dados para caso queiramos descobrir qual é a opinião do público em relação à escolha de bandas do Rock in Rio. 
+
+Neste estudo, fez-se a extração dos comentários de 46 postagens de anúncio de artistas para o Rock in Rio. Com estes dados, foi possível realizar mineração de texto a fim de inferir sobre o que está sendo falado da programação do Festival. Os procedimentos e resultados destas tarefas estão descritos nas próximas páginas. 
+
+### Análise descritiva
+
+Para a análise descritiva inicial dos dados, primeiro utilizamos as contagens de  reações em cada post. Dependendo do artista, é comum que exista uma separação de  opiniões entre o público, porque algumas pessoas podem aprovar a escolha, e outras  não. Esta separação já pode ser observada nas reações das pessoas às postagens, dado que existe a possibilidade de reações negativas ou positivas. 
+
+Após explorar esta parte dos dados, partimos para o texto em si. Começamos com o pré-processamento destes dados, que consiste em transformar o texto em um objeto do tipo "Corpus", e limpá-lo. Quando nos referimos à limpeza, queremos dizer que é preciso retirar elementos como números, pontuação, *stopwords* (palavras muito comuns, ou somente
+de conexão entre frase, que não tem real importância na análise), e etc. Especificamente neste caso, retiramos também os nomes próprios, porque é muito comum acontecer de pessoas "marcarem" seus amigos neste tipo de postagem, para avisá-los do acontecimento, por exemplo. 
+
+Ao termos os dados limpos, podemos convertê-los em "bigramas", ao invés de considerarmos palavras sozinhas. Esta escolha é feita porque uma palavra pode não ter muito sentido sozinha, enquanto se ela for complementada por um par, a análise pode ser mais explicativa.
+Sentidos também podem ser invertidos ao analisarmos apenas palavras. 
+Por exemplo, a palavra "não", que geralmente tem uma conotação negativa, pode ter outro sentido caso esteja  ligada com a palavra "acredito", formando o bigrama "não acredito", e assim por diante. 
+
+Após a obtenção de bigramas, partimos para a observação de suas frequências. Esta parte  exige um pouco de interpretação, no sentido de que o computador não sabe quais bigramas são positivos ou negativos. Então, é tarefa do analista verificar qual é a conotação dos bigramas mais frequentes. Assim, caso note-se uma possível separação entre a opinião das pessoas,podemos partir para a próxima abordagem deste
+trabalho, que é a Modelagem de Tópicos. 
+
+
+### Modelagem de Tópicos
+
+A modelagem de tópicos é util na classificação das palavras de um 
+texto em certos "clusters". Quando temos uma organização em forma de
+tópicos, é mais fácil resumir e saber as tendências do texto. 
+
+O pacote aqui utilizado envolve a modelagem estrutural de tópicos. 
+Assim como outros processos de modelagem de tópicos, este supõe um
+modelo generativo: cada documento é uma mistura de tópico, e cada tópico
+é uma mistura de termos. O que queremos dizer com isso é que os tópicos
+são atribuídos ao nível das palavras, e não das frases. Assim, podemos
+ter frases com diversas palavras, e cada uma delas "caindo" em tópicos diferentes. 
+
+Por ser generativo, temos que nós definimos um processo generativo de
+dados para cada documento e depois utilizamos os dados para encontrar
+os valores mais prováveis dos parâmetros do modelo. Com essa estruturação, um tópico é definido como uma mistura de palavras
+(termos), onde cada palavra tem uma probabilidade de pertencer a um tópico. Além disso, um documento fica sendo uma mistura de tópicos, 
+como dito anteriormente. A soma da proporção de tópicos, em todos os
+tópicos, para um documento vale 1, e a soma de probabilidades de tópico
+para uma palavra, em todos os tópicos, também é 1. 
+
+O pacote aqui utilizado permite a utilização de alguns elementos extra:
+a prevalência  e o conteúdo. A prevalência de um tópico refere-se ao
+quanto ele está associado à um documento. Já o conteúdo de tópico
+refere-se basicamente às palavras que o compõem. Ambos podem ser função
+dos metadados dos documentos. Assim, metadados que explicam a prevalência são chamado de "covariáveis de prevalência", e os que
+explicam conteúdo são as "covariáveis de conteúdo". O modelo permite
+então usar ou não estas variáveis, sendo que no último caso, o modelo
+reduz-se a um Modelo de Tópicos Correlacionado.
+
+
+Ínicio 
+=======================================================================
+
+Row 
+-------------------------------------
+### Pacotes
+
+Nesta página, damos início aos procedimentos comuns a todas as
+análises. Primeiro, realizamos o carregamento de alguns pacotes úteis: 
+
+```{r, echo=TRUE}
+#-------------
+library(tm)
+library(stringr)
+library(networkD3)
+library(plyr)
+library(lattice)
+library(latticeExtra)
+library(RWeka)
+library(stm)
+library(tidytext)
+#-------------
+```
+
+Row {data-height=230}
+-------------------------------------
+### Bases de dados
+Os dados utilizados aqui estão disponíveis no GitHub. Para utilizá-los,
+basta fazer o download dos arquivos *.rda* e utilizar os seguintes 
+comandos:
+```{r, echo=TRUE}
+# Base de Comentários
+load("comm.rda")
+# O nome do arquivo é "base"
+names(base)
+#-------------
+# Base de Reações
+load("reac.rda")
+# O nome do arquivo é "reac"
+names(reac)
+```
+
+Row 
+-------------------------------------
+### Listas de Nomes
+
+Em comentários do Facebook, é comum que as pessoas "marquem" seus amigos,
+para avisá-los sobre o conteúdo da publicação. Por isso, a base de dados
+lida acima contém muitos nomes próprios. Precisamos fazer algo para
+retirar estes nomes a fim de evitar que eles mascarem a frequência 
+das palavras que realmente importam. 
+
+Nesta parte, lemos 3 bases que contém nomes masculinos e femininos, 
+disponíveis no GitHub, que vão nos ajudar a removê-los dos comentários
+depois:
+
+```{r, echo=TRUE}
+#----------------- Um dicionário geral de nomes
+nomes <- read.table("nomes.txt",
+                    header = FALSE,
+                    sep = ",",
+                    quote = "",
+                    stringsAsFactors = FALSE)
+names(nomes) <- "nomes"
+
+#----------------- Um dicionário feminino
+fem <- read.table("fem.txt",
+                    header = FALSE,
+                    sep = ",",
+                    quote = "",
+                    stringsAsFactors = FALSE)
+names(fem) <- "fem"
+
+#----------------- Um dicionário masculino
+masc <- read.table("masc.txt",
+                  header = FALSE,
+                  sep = ",",
+                  quote = "",
+                  stringsAsFactors = FALSE)
+names(masc) <- "masc"
+```
+
+
+Row 
+-------------------------------------
+### Funções Úteis
+
+As funções a seguir serão utilizadas ao longo de toda a análise
+contida aqui. A primeira é uma função para fazer bigramas. A segunda
+é uma função completa, que realiza o processamento do texto cru, 
+até transformá-lo em uma matriz de documentos e termos limpa e 
+composta apenas pelos bigramas mais frequentes. A descrição dos
+passos está na própria função. 
+
+```{r, echo=TRUE}
+BigramTokenizer <- function(x) {
+  RWeka::NGramTokenizer(x, RWeka::Weka_control(min = 2, max = 2))
+}
+
+all.text <- function(vec) {
+  
+  # Retira os caracteres não gráficos do texto
+  vec <- str_replace_all(vec, "[^[:graph:]]", " ") 
+  
+  # Cria o Corpus.
+  cps <- VCorpus(VectorSource(vec),
+                 readerControl = list(language = "pt"))
+  
+  # Retira os nomes 
+  cps <- tm_map(cps,
+                FUN = removeWords,
+                words = c(nomes$nomes, fem$fem, masc$masc))
+  
+  # Operações de limpeza e definição de encoding
+  cps <- tm_map(cps, FUN = content_transformer(tolower))
+  cps <- tm_map(cps, FUN = removePunctuation)
+  cps <- tm_map(cps, FUN = removeNumbers)
+  cps <- tm_map(cps, FUN = stripWhitespace)  
+  cps <- tm_map(cps,
+                FUN = removeWords,
+                words = c("rock", "in", "rio", "q"))
+
+  # Se houver problema de encoding:
+  # cps <- tm_map(cpsAero, function(x) iconv(enc2utf8(x), sub = "byte"))
+  
+  # Remove stopwords
+  cps <- tm_map(cps,
+                FUN = removeWords,
+                words = stopwords("portuguese"))
+  
+  # Realiza a conversão em bigramas
+  dtm <- DocumentTermMatrix(cps,
+                            control = list(tokenize = BigramTokenizer))
+  
+  # Mantendo apenas os 150 termos mais frequentes
+  dtm <- dtm[, names(tail(sort(colSums(as.matrix(dtm))), 150))]
+  
+  # Retorna a matriz de documentos e termos
+  return(dtm)
+}
+```
+
+Row 
+-------------------------------------
+### Funções Gráficas
+
+As funções a seguir auxiliarão em momentos aonde faremos
+alguns gráficos de palavras prováveis em cada tópico
+nas modelagens de tópico. 
+
+```{r}
+prepanel.pareto <- function(x, y, ...) {
+  yy <- y[, drop = TRUE]
+  list(ylim = as.character(yy),
+       yat = 1:nlevels(yy))
+}
+
+panel.pareto <- function(x, y, ...) {
+  yy <- y[, drop = TRUE]
+  panel.barchart(x, yy[order(yy)], ...)
+}
+```
+
+
+
+
+Ivete {data-navmenu="Artistas"}
+=======================================================================
+Row {.tabset, data-height=400}
+-------------------------------------
+### Introdução
+A primeira análise realizada é em relação à cantora Ivete. Esta escolha
+foi feita dada à polêmica que sempre acontece quando a artista é 
+escolhida para cantar no evento. Muitas pessoas gostam dela, enquanto
+outras discordam de sua participação, alegando que o evento deveria 
+ser só de "rock". Frases comuns encontradas aqui poderão ser "mudem
+o nome do evento", "isso não é rock", "não gostei", ou, pelo contrário,
+"é isso mesmo", "cultura brasileira", e assim por diante. 
+
+Row {.tabset, data-height=425}
+-------------------------------------
+### Contagem de Sentimentos
+
+A contagem de sentimentos aqui apresentada funciona como uma primeira
+análise descritiva. No gráfico abaixo, notamos que, mesmo que tenhamos 
+uma grande quantidade de "likes" e "loves", muitas pessoas também
+não gostaram da participação da Ivete no Rock in Rio, demonstrando
+isso com a reação "angry" ou até "haha". Estas são as primeiras 
+evidências de que podemos encontrar polarizações entre os comentários
+do público.
+```{r, eval=FALSE}
+iv <- reac[reac$artist == "Ivete",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = iv, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3",
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", 
+                                      "yellow",  "yellow3",
+                                      "yellowgreen", "orange"))))
+```
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Gráfico da Contagem
+```{r, echo=FALSE}
+iv <- reac[reac$artist == "Ivete",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = iv, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3",
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", 
+                                      "yellow",  "yellow3",
+                                      "yellowgreen", "orange"))))
+```
+
+
+Row {data-height=400}
+-------------------------------------
+### Recorte da Base
+Nesta seção, estamos apenas extraindo a parte da base de comentários
+referente à Ivete e construindo a matriz de documentos e termos com
+a função construída anteriormente. 
+```{r, echo=TRUE}
+# Seleciona os comentários direcionados à cantora Ivete
+ivete <- base[base$artist == "Ivete",]
+# Quantidade de comentários
+length(ivete$message)
+
+# Constrói a matriz de documentos e termos
+dtIvete <- all.text(ivete$message)
+# Mostra os primeiros bigramas 
+head(Terms(dtIvete))
+```
+
+
+Row {.tabset, data-height=50}
+-------------------------------------
+### Frequências de Palavras
+
+Nesta seção, realizamos uma análise de frequências dos bigramas 
+encontrados nos textos dos comentários. Com o gráfico apresentado
+abaixo, notamos alguns aspectos interessantes, como a presença  dos
+bigramas "fala sério", "nome festival", "nome evento", "mudar nome", 
+que são possivelmente relacionados. Por outro lado, também vemos
+bigramas positivos, como "rainha brasil", "agora sim", "é axé", 
+"é bom", "quero ir", e assim por diante. Ou seja, as evidências
+de polarização agora são ainda mais fortes. 
+
+```{r, eval=FALSE}
+frqIvete <- slam::colapply_simple_triplet_matrix(dtIvete, FUN = sum)
+frqIvete <- sort(frqIvete, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqIvete, n = 35), xlim = c(0, NA),
+         col =  "violet", 
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Gráfico 
+```{r, echo=FALSE}
+frqIvete <- slam::colapply_simple_triplet_matrix(dtIvete, FUN = sum)
+frqIvete <- sort(frqIvete, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqIvete, n = 35), xlim = c(0, NA),
+         col = "violet", 
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+
+Row {data-height=350}
+-------------------------------------
+### Rede de Conexões
+A rede de conexões mostrada abaixo serve para mostrar as associações
+diretas entre os bigramas. 
+```{r, eval=FALSE}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtIvete)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+simpleNetwork(net,
+              opacity = 0.8, 
+              linkColour= "violet", 
+              nodeColour="tomato", 
+              zoom=TRUE, fontSize = 16,
+              linkDistance = 70)
+```
+
+Row {data-height=1000}
+-------------------------------------
+### Rede de Conexões
+
+```{r, echo=FALSE, results='asis'}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtIvete)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+simpleNetwork(net,
+              opacity = 0.8, 
+              linkColour= "violet", 
+              nodeColour="tomato", 
+              zoom=TRUE, 
+              fontSize = 16,
+              linkDistance = 70)
+```
+
+Row {data-height=1950}
+-------------------------------------
+### Modelagem de Tópicos
+Dado que temos evidências de uma possível polarização, vamos utilizar
+uma abordagem de modelagem de tópicos, cujos métodos já foram 
+explicados na introdução. Os códigos são explicados abaixo. Aqui, 
+optamos por estimar apenas três tópicos, o que parece um número 
+razóavel. 
+```{r, echo=TRUE}
+# Utiliza a função do pacote stm para processar os dados
+temp <- textProcessor(documents=m$term, metadata=m)
+# Prepara os dados para a modelagem de tópicos
+out <- prepDocuments(temp$documents, temp$vocab, temp$meta)
+
+# Define a semente dos parâmetros iniciais
+set.seed(2015)
+
+# Faz a modelagem dividindo em 3 tópicos, em no máximo 10 iterações
+mod <- stm(out$documents, out$vocab, 3, 
+               data=out$meta, max.em.its = 10)
+# Resumo básico do modelo
+summary(mod)
+```
+
+Row 
+-------------------------------------
+### Gráfico do Modelo - Código
+O gráfico apresentado a seguir mostra as palavras de maior
+probabilidade de ocorrência em cada tópico. O primeiro tópico 
+pode ser interpretado como o mais "positivo", pois traz termos
+como "rainha", "quero" e até mesmo "amor". O segundo e terceiro 
+tópicos são  mais  claramente negativos, pois conseguiram
+"reestruturar" a ideia de "mudar o nome do evento", além de conter termos como "fala" e "sério", que juntos formam um bigrama negativo,
+palavrões, os termos "nada" e "ver", e assim por diante. 
+
+```{r, eval=FALSE}
+# Gráfico que mostra as palavras de maior probabilidade em cada tópico
+plot(mod, type = "labels", labeltype = "prob")
+```
+
+Row {data-height=400}
+-------------------------------------
+### Gráfico do Modelo
+```{r, echo=FALSE}
+plot(mod, type = "labels", labeltype = "prob")
+```
+
+Row {data-height=250}
+-------------------------------------
+### Sentenças Importantes
+O gráfico das sentenças mais importantes consegue dar uma ideia geral
+do que "explica mais cada tópico". Indo nesta linha, podemos comentar
+que o primeiro tópico é o "mais positivo", o segundo é o 
+"mais negativo" e o terceiro aborda temas diversos. 
+```{r, eval=FALSE}
+# Encontra a sentença que foi mais importante/representativa na definição de cada tópico
+thoughts <- findThoughts(mod, texts=temp$meta$term,
+                         topics=c(1:3), n = 1)$docs
+
+# Mostra as sentenças representativas
+plotQuote(thoughts)
+```
+
+Row 
+-------------------------------------
+### Gráfico das Sentenças
+```{r, echo=FALSE}
+# Mostra as sentenças representativas
+thoughts <- findThoughts(mod, texts=temp$meta$term,
+                         topics=c(1:3), n = 1)$docs
+plotQuote(thoughts)
+```
+
+Row {data-height=750}
+-------------------------------------
+### Gráfico das palavras mais prováveis - código
+
+Para uma melhor descrição de cada tópico, mostramos um gráfico
+que traz as 30 palavras mais prováveis em cada um deles, que 
+deve representar o que já foi apresentado. 
+```{r, eval = FALSE}
+# Busca as log-verossimilhanças do modelo
+mm <- ldply(mod$beta$logbeta, data.frame)
+mm <- as.data.frame(t(mm))
+#--------
+# Atribui as log-verossimilhanças à cada palavra 
+par <- cbind(mod$vocab, mm)
+names(par) <- c("word", "Tópico 1", "Tópico 2", "Tópico 3")
+
+k <- 30
+
+# Ordena e organiza os dados
+tops <- lapply(par[, c("Tópico 1", "Tópico 2", "Tópico 3")],
+               FUN = function(x) {
+                 o <- head(order(x, decreasing = TRUE), n = k)
+                 data.frame(term = par$word[o],
+                            lprob = x[o])
+               })
+tops <- ldply(tops, .id = "topic")
+
+#--------- Gráfico
+barchart(term ~ lprob | topic,
+         data = tops,
+         ylab = "Termos mais frequentes em cada tópico",
+         xlab = "log da probabilidade de cada termo no tópico",
+         scales = "free",
+         layout = c(NA, 1),
+         prepanel = prepanel.pareto,
+         panel = panel.pareto,
+         col = "tomato")
+```
+
+
+Row 
+-------------------------------------
+### Gráfico das palavras mais prováveis 
+```{r, echo = FALSE}
+# Busca as log-verossimilhanças do modelo
+mm <- ldply(mod$beta$logbeta, data.frame)
+mm <- as.data.frame(t(mm))
+#--------
+# Atribui as log-verossimilhanças à cada palavra 
+par <- cbind(mod$vocab, mm)
+names(par) <- c("word", "Tópico 1", "Tópico 2", "Tópico 3")
+
+k <- 30
+
+# Ordena e organiza os dados
+tops <- lapply(par[, c("Tópico 1", "Tópico 2", "Tópico 3")],
+               FUN = function(x) {
+                 o <- head(order(x, decreasing = TRUE), n = k)
+                 data.frame(term = par$word[o],
+                            lprob = x[o])
+               })
+tops <- ldply(tops, .id = "topic")
+
+#--------- Gráfico
+barchart(term ~ lprob | topic,
+         data = tops,
+         ylab = "Termos mais frequentes em cada tópico",
+         xlab = "log da probabilidade de cada termo no tópico",
+         scales = "free",
+         layout = c(NA, 1),
+         prepanel = prepanel.pareto,
+         panel = panel.pareto,
+         col = "tomato")
+```
+
+
+Justin Timberlake {data-navmenu="Artistas"}
+=======================================================================
+Row {.tabset, data-height=350}
+-------------------------------------
+### Introdução
+A análise sobre o cantor Justin Timberlake é realizada visto que ele
+é um artista pop mas está vindo para um festival de rock. Logo, será
+que encontraremos alguma crítica em relação a isso? Provavelmente 
+não, porque o Justin é um artista muito apreciado, logo este fator
+passa a ser ignorado. Mas vamos à análise
+
+Row {.tabset, data-height=425}
+-------------------------------------
+### Contagem de Sentimentos
+
+A contagem de sentimentos aqui apresentada funciona como uma primeira
+análise descritiva. No gráfico abaixo, notamos que temos uma grande
+quantidade de "likes" e "loves", a até mesmo de "wow", que é uma 
+expressão de surpresa. Estas primeiras evidências não indicam
+possíveis polarizações, porques as reações mais comuns são de 
+sentimentos com tons parecidos. 
+
+```{r, eval=FALSE}
+jus <- reac[reac$artist == "Justin Timberlake",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = jus, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3",
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", "yellow",
+                                      "yellow3", "yellowgreen",
+                                      "orange"))))
+```
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Gráfico da Contagem
+```{r, echo=FALSE}
+jus <- reac[reac$artist == "Justin Timberlake",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = jus, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3",
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", "yellow",
+                                      "yellow3", "yellowgreen",
+                                      "orange"))))
+```
+
+
+Row {data-height=400}
+-------------------------------------
+### Recorte da Base
+Nesta seção, estamos apenas extraindo a parte da base de comentários
+referente ao Justin e construindo a matriz de documentos e termos com
+a função construída anteriormente.
+```{r, echo=TRUE}
+# Seleciona os comentários direcionados ao Justin Timberlake
+justin <- base[base$artist == "Justin Timberlake",]
+# Quantidade de comentários
+length(justin$message)
+
+# Constrói a matriz de documentos e termos
+dtJustin <- all.text(justin$message)
+# Mostra os primeiros bigramas 
+head(Terms(dtJustin))
+```
+
+
+Row {.tabset, data-height=50}
+-------------------------------------
+### Frequências de Palavras
+
+Nesta seção, realizamos uma análise de frequências dos bigramas 
+encontrados nos textos dos comentários. Com o gráfico apresentado
+abaixo, notamos alguns aspectos majoritariamente positivos sobre
+a presença do Justin no Rock in Rio, como comentários do tipo 
+"nunca pedi", "pedi nada", que poderiam formar a frase 
+"nunca te pedi nada", outros como "preciso ir", "passando mal", 
+"vou ter", e assim por diante. Isto é compatível com o que foi 
+observado na Contagem de Sentimentos. 
+
+```{r, eval=FALSE}
+frqJustin <- slam::colapply_simple_triplet_matrix(dtJustin, FUN = sum)
+frqJustin <- sort(frqJustin, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqJustin, n = 35), xlim = c(0, NA),
+         col =  "violet", 
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Gráfico 
+```{r, echo=FALSE}
+frqJustin <- slam::colapply_simple_triplet_matrix(dtJustin, FUN = sum)
+frqJustin <- sort(frqJustin, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqJustin, n = 35), xlim = c(0, NA),
+         col = "violet",  
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+
+Row {data-height=350}
+-------------------------------------
+### Rede de Conexões
+A rede de conexões mostrada abaixo serve para mostrar as associações
+diretas entre os bigramas. 
+
+```{r, eval=FALSE}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtJustin)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+str(net)
+simpleNetwork(net,
+              fontSize = 16,
+              opacity = 1)
+```
+
+Row {data-height=1000}
+-------------------------------------
+### Rede de Conexões
+
+```{r, echo=FALSE, results='asis'}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtJustin)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+simpleNetwork(net,
+              opacity = 0.8, linkColour= "violet", nodeColour="tomato", 
+             zoom=TRUE, fontSize = 16)
+```
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Conclusão
+Como não temos evidências de uma possível polarização do público
+em relação à vinda do Justin Timberlake ao Rock in Rio, não 
+gastaremos tempo encontrando tópicos que possivelmente não existem.
+Assim, concluímos que existe uma aceitação muito grande deste
+artista, o que não é o que acontece com todos. 
+
+
+
+Lady Gaga {data-navmenu="Artistas"}
+=======================================================================
+Row {.tabset, data-height=350}
+-------------------------------------
+### Introdução
+
+A análise sobre a cantora Lady Gaga é realizada visto que ele
+é uma artista pop mas está vindo para um festival de rock. Logo, será
+que encontraremos alguma crítica em relação a isso? Além disso, 
+diferente do Justin Timberlake, por exemplo, a Lady Gaga é uma 
+cantora muito extravagante, o que pode cutucar uma certa parte 
+da população brasileira. Será que eles tem algo a dizer? Isto
+seŕa verificado com as análises a seguir. 
+
+
+Row {.tabset, data-height=400}
+-------------------------------------
+### Contagem de Sentimentos
+
+A contagem de sentimentos aqui apresentada funciona como uma primeira
+análise descritiva. No gráfico abaixo, notamos que temos uma grande
+quantidade de "likes" e "loves", a até mesmo de "wow", que é uma 
+expressão de surpresa. Estas primeiras evidências não indicam
+possíveis polarizações, porques as reações mais comuns são de 
+sentimentos com tons parecidos. 
+```{r, eval=FALSE}
+lady <- reac[reac$artist == "Lady Gaga",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = lady, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3",
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", "yellow",
+                                      "yellow3", "yellowgreen",
+                                      "orange"))))
+```
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Gráfico da Contagem
+```{r, echo=FALSE}
+lady <- reac[reac$artist == "Lady Gaga",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = lady, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3",
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", "yellow",
+                                      "yellow3", "yellowgreen",
+                                      "orange"))))
+```
+
+
+Row {data-height=400}
+-------------------------------------
+### Recorte da Base
+Nesta seção, estamos apenas extraindo a parte da base de comentários
+referente à Lady Gaga e construindo a matriz de documentos e termos com
+a função construída anteriormente.
+```{r, echo=TRUE}
+# Seleciona os comentários direcionados à cantora Lady Gaga
+ladyg <- base[base$artist == "Lady Gaga",]
+# Quantidade de comentários
+length(ladyg$message)
+
+# Constrói a matriz de documentos e termos
+dtladyg <- all.text(ladyg$message)
+# Mostra os primeiros bigramas 
+head(Terms(dtladyg))
+```
+
+
+Row {.tabset, data-height=50}
+-------------------------------------
+### Frequências de Palavras
+
+Nesta seção, realizamos uma análise de frequências dos bigramas 
+encontrados nos textos dos comentários. Com o gráfico apresentado
+abaixo, notamos alguns aspectos positivos sobre a presença da 
+Lady Gada no Rock in Rio, como comentários do tipo "quero ir",
+"agora sim", "nunca pedi", "única apresentação", "passando mal",
+"pedi nada", e por ai vai. Também temos um termo frequente 
+já visto na análise da Ivete, "nome evento", que faz referência
+ao fato da Lady Gaga não ser uma artista de Rock. Mas esta é uma
+"ocorrência isolada". Isto é compatível com o que foi observado na Contagem de Sentimentos. 
+
+```{r, eval=FALSE}
+frqladyg <- slam::colapply_simple_triplet_matrix(dtladyg, FUN = sum)
+frqladyg <- sort(frqladyg, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqladyg, n = 35), xlim = c(0, NA),
+         col =  "violet", 
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Gráfico 
+```{r, echo=FALSE}
+frqladyg <- slam::colapply_simple_triplet_matrix(dtladyg, FUN = sum)
+frqladyg <- sort(frqladyg, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqladyg, n = 35), xlim = c(0, NA),
+         col = "violet", 
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+
+Row {data-height=350}
+-------------------------------------
+### Rede de Conexões
+
+A rede de conexões mostrada abaixo serve para mostrar as associações
+diretas entre os bigramas. 
+```{r, eval=FALSE}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtladyg)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+simpleNetwork(net,
+              opacity = 0.8, 
+              linkColour= "violet", 
+              nodeColour="tomato", 
+              zoom=TRUE, fontSize = 16,
+              linkDistance = 70)
+```
+
+Row {data-height=1000}
+-------------------------------------
+### Rede de Conexões
+
+```{r, echo=FALSE, results='asis'}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtladyg)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+simpleNetwork(net,
+              opacity = 0.8, 
+              linkColour= "violet", 
+              nodeColour="tomato", 
+              zoom=TRUE, 
+              fontSize = 16,
+              linkDistance = 70)
+```
+
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Conclusão
+Como não temos evidências de uma possível polarização do público
+em relação à vinda do Lady Gaga ao Rock in Rio, não 
+faremos uma modelagem de tópicos. Assim, concluímos que existe
+uma boa aceitação desta artista no evento, o que não é o que 
+acontece com todos. 
+
+Salve O Samba {data-navmenu="Artistas"}
+=======================================================================
+Row {.tabset, data-height=350}
+-------------------------------------
+### Introdução
+
+A análise sobre o grupo com o tema Salve o Samba é realizada visto
+que o gênero deste grupo é diferente do "tema" do festival, 
+que é o Rock. Logo, pode ser que encontremos críticas em relação
+à isso. 
+
+Row {.tabset, data-height=400}
+-------------------------------------
+### Contagem de Sentimentos
+
+A contagem de sentimentos aqui apresentada funciona como uma primeira
+análise descritiva. No gráfico abaixo, notamos que temos uma grande
+quantidade de "likes", enquanto as outras reações parecem igualmente
+distribuídas. 
+
+```{r, eval=FALSE}
+sam <- reac[reac$artist == "Salve o Samba",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = sam, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3",
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", "yellow", 
+                                      "yellow3", "yellowgreen",
+                                      "orange"))))
+```
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Gráfico da Contagem
+```{r, echo=FALSE}
+sam <- reac[reac$artist == "Salve o Samba",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = sam, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3",
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", "yellow",
+                                      "yellow3", "yellowgreen",
+                                      "orange"))))
+```
+
+
+Row {data-height=400}
+-------------------------------------
+### Recorte da Base
+
+Nesta seção, estamos apenas extraindo a parte da base de comentários
+referente ao Salve o Samba e construindo a matriz de documentos e
+termos com a função construída anteriormente.
+```{r, echo=TRUE}
+# Seleciona os comentários direcionados ao Salve o Samba
+samba <- base[base$artist == "Salve o Samba",]
+# Quantidade de comentários
+length(samba$message)
+
+# Constrói a matriz de documentos e termos
+dtSamba <- all.text(samba$message)
+# Mostra os primeiros bigramas 
+head(Terms(dtSamba))
+```
+
+
+Row {.tabset, data-height=50}
+-------------------------------------
+### Frequências de Palavras
+
+Nesta seção, realizamos uma análise de frequências dos bigramas 
+encontrados nos textos dos comentários. Com o gráfico apresentado
+abaixo, notamos alguns aspectos positivos sobre a presença do 
+Salve o Samba no Rock in Rio, como comentário do tipo "quero ir",
+"ainda bem", "agora sim", entre outros. Porém, algo não observado
+nas reações é a parte negativa. Temos uma alta frequência de 
+bigramas como "mudar nome", "nome evento", 
+"nada contra"+"contra samba", "nada ver", sugerindo que uma 
+boa proporção do público pensa que a presença de samba no
+evento não tem nada a ver, ou o nome do evento deveria 
+ser mudado por conta disso, e assim por diante. Esta é a 
+mesma situação que acontece com o caso da Ivete. 
+
+```{r, eval=FALSE}
+frqSamba <- slam::colapply_simple_triplet_matrix(dtSamba, FUN = sum)
+frqSamba <- sort(frqSamba, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqSamba, n = 35), xlim = c(0, NA),
+         col =  "violet", 
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+Row {.tabset, data-height=200}
+-------------------------------------
+### Gráfico 
+```{r, echo=FALSE}
+frqSamba <- slam::colapply_simple_triplet_matrix(dtSamba, FUN = sum)
+frqSamba <- sort(frqSamba, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqSamba, n = 35), xlim = c(0, NA),
+         col = "violet", 
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+
+Row {data-height=350}
+-------------------------------------
+### Rede de Conexões
+
+A rede de conexões mostrada abaixo serve para mostrar as associações
+diretas entre os bigramas. 
+```{r, eval=FALSE}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtSamba)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+simpleNetwork(net,
+              opacity = 0.8, 
+              linkColour= "violet", 
+              nodeColour="tomato", 
+              zoom=TRUE, fontSize = 16,
+              linkDistance = 70)
+```
+
+Row {data-height=1000}
+-------------------------------------
+### Rede de Conexões
+
+```{r, echo=FALSE, results='asis'}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtSamba)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+simpleNetwork(net,
+              opacity = 0.8, 
+              linkColour= "violet", 
+              nodeColour="tomato", 
+              zoom=TRUE, 
+              fontSize = 16,
+              linkDistance = 70)
+```
+
+Row {data-height=1950}
+-------------------------------------
+### Modelagem de Tópicos
+
+Dado que temos evidências de uma possível polarização, vamos utilizar
+uma abordagem de modelagem de tópicos, cujos métodos já foram 
+explicados na introdução. Os códigos são explicados abaixo. Aqui, 
+optamos por estimar apenas três tópicos, o que parece um número 
+razóavel. 
+```{r, echo=TRUE}
+# Utiliza a função do pacote stm para processar os dados
+temp <-textProcessor(documents=m$term, metadata=m)
+# Prepara os dados para a modelagem de tópicos
+out <- prepDocuments(temp$documents, temp$vocab, temp$meta)
+
+# Define a semente dos parâmetros iniciais
+set.seed(2015)
+
+# Faz a modelagem dividindo em 3 tópicos, em no máximo 10 iterações
+mod <- stm(out$documents, out$vocab, 3, 
+               data=out$meta, max.em.its = 10)
+# Resumo básico do modelo
+summary(mod)
+```
+
+Row {data-height=120}
+-------------------------------------
+### Gráfico do Modelo - Código
+
+O gráfico apresentado a seguir mostra as palavras de maior
+probabilidade de ocorrência em cada tópico. 
+```{r, eval=FALSE}
+# Gráfico que mostra as palavras de maior probabilidade em cada tópico
+plot(mod, type = "labels", labeltype = "prob")
+```
+
+Row {data-height=400}
+-------------------------------------
+### Gráfico do Modelo
+```{r, echo=FALSE}
+plot(mod, type = "labels", labeltype = "prob")
+```
+
+Row {data-height=750}
+-------------------------------------
+### Gráfico das palavras mais prováveis - código
+
+Para uma melhor descrição de cada tópico, mostramos um gráfico
+que traz as 30 palavras mais prováveis em cada um deles, que 
+deve representar o que já foi apresentado. 
+```{r, eval = FALSE}
+# Busca as log-verossimilhanças do modelo
+mm <- ldply(mod$beta$logbeta, data.frame)
+mm <- as.data.frame(t(mm))
+#--------
+# Atribui as log-verossimilhanças à cada palavra 
+par <- cbind(mod$vocab, mm)
+names(par) <- c("word", "Tópico 1", "Tópico 2", "Tópico 3")
+
+k <- 30
+
+# Ordena e organiza os dados
+tops <- lapply(par[, c("Tópico 1", "Tópico 2", "Tópico 3")],
+               FUN = function(x) {
+                 o <- head(order(x, decreasing = TRUE), n = k)
+                 data.frame(term = par$word[o],
+                            lprob = x[o])
+               })
+tops <- ldply(tops, .id = "topic")
+
+#--------- Gráfico
+barchart(term ~ lprob | topic,
+         data = tops,
+         ylab = "Termos mais frequentes em cada tópico",
+         xlab = "log da probabilidade de cada termo no tópico",
+         scales = "free",
+         layout = c(NA, 1),
+         prepanel = prepanel.pareto,
+         panel = panel.pareto,
+         col = "tomato")
+```
+
+
+Row 
+-------------------------------------
+### Gráfico das palavras mais prováveis 
+```{r, echo = FALSE}
+# Busca as log-verossimilhanças do modelo
+mm <- ldply(mod$beta$logbeta, data.frame)
+mm <- as.data.frame(t(mm))
+#--------
+# Atribui as log-verossimilhanças à cada palavra 
+par <- cbind(mod$vocab, mm)
+names(par) <- c("word", "Tópico 1", "Tópico 2", "Tópico 3")
+
+k <- 30
+
+# Ordena e organiza os dados
+tops <- lapply(par[, c("Tópico 1", "Tópico 2", "Tópico 3")],
+               FUN = function(x) {
+                 o <- head(order(x, decreasing = TRUE), n = k)
+                 data.frame(term = par$word[o],
+                            lprob = x[o])
+               })
+tops <- ldply(tops, .id = "topic")
+
+#--------- Gráfico
+barchart(term ~ lprob | topic,
+         data = tops,
+         ylab = "Termos mais frequentes em cada tópico",
+         xlab = "log da probabilidade de cada termo no tópico",
+         scales = "free",
+         layout = c(NA, 1),
+         prepanel = prepanel.pareto,
+         panel = panel.pareto,
+         col = "tomato")
+```
+
+
+
+Bon Jovi {data-navmenu="Artistas"}
+=======================================================================
+
+Row 
+-------------------------------------
+### Introdução
+Esta análise final é realizada em relação à banda Bon Jovi.
+Esta escolha foi feita dado que já avaliamos alguns artistas,
+mas nenhum deles de rock mesmo. Aqui, vamos tentar verificar 
+as diferenças que este fator pode trazer aos comentários do 
+público. 
+
+Row 
+-------------------------------------
+### Contagem de Sentimentos
+
+A contagem de sentimentos aqui apresentada funciona como uma primeira
+análise descritiva. No gráfico abaixo, notamos que temos uma grande
+quantidade de "likes" e também de "loves" e "wow", enquanto as outras
+reações parecem igualmente distribuídas. 
+
+```{r, eval=FALSE}
+bon <- reac[reac$artist == "Bon Jovi",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = bon, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3",
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", "yellow",
+                                      "yellow3", "yellowgreen",
+                                      "orange"))))
+```
+
+Row 
+-------------------------------------
+### Gráfico da Contagem
+```{r, echo=FALSE}
+bon <- reac[reac$artist == "Bon Jovi",]
+
+barchart(artist~likes_count+love_count+haha_count+wow_count+
+           sad_count+angry_count,
+         data = bon, 
+         col=c("skyblue", "lightpink", "yellow", "yellow3", 
+               "yellowgreen", "orange"),
+         xlab = "Contagem de Sentimentos",
+         key = list(space = "right",
+                    text = list(lab = c("Like", "Love", "Haha", "Wow",
+                                        "Sad", "Angry")),
+                    points=list(pch=19, lwd = 3, 
+                                col=c("skyblue", "lightpink", "yellow",
+                                      "yellow3", "yellowgreen",
+                                      "orange"))))
+```
+
+
+Row {data-height=400}
+-------------------------------------
+### Recorte da Base
+
+Nesta seção, estamos apenas extraindo a parte da base de comentários
+referente ao Bon Jovi e construindo a matriz de documentos e termos 
+com a função construída anteriormente. 
+```{r, echo=TRUE}
+# Seleciona os comentários direcionados ao Bon Jovi
+bj <- base[base$artist == "Bon Jovi",]
+# Quantidade de comentários
+length(bj$message)
+
+# Constrói a matriz de documentos e termos
+dtBj <- all.text(bj$message)
+# Mostra os primeiros bigramas 
+head(Terms(dtBj))
+```
+
+
+Row 
+-------------------------------------
+### Frequências de Palavras
+
+Nesta seção, realizamos uma análise de frequências dos bigramas 
+encontrados nos textos dos comentários. Esta análise é complicada
+porque nenhum bigrama é realmente muito frequente ou relevante.
+Mesmo assim, podemos notar palavras positivas, como "vamos vamos",
+"quero ir", "nunca pedi", "pedi nada", "preciso ir", e assim
+por diante. 
+
+```{r, eval=FALSE}
+frqBj <- slam::colapply_simple_triplet_matrix(dtBj, FUN = sum)
+frqBj <- sort(frqBj, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqBj, n = 35), xlim = c(0, NA),
+         col =  "violet", 
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+Row 
+-------------------------------------
+### Gráfico 
+```{r, echo=FALSE}
+frqBj <- slam::colapply_simple_triplet_matrix(dtBj, FUN = sum)
+frqBj <- sort(frqBj, decreasing = TRUE)
+
+# Mostra o gráfico de frequências dos bigramas
+barchart(head(frqBj, n = 35), xlim = c(0, NA),
+         col = "violet", 
+         xlab = "Frequência",
+         ylab = "Bi-gramas",
+         strip = strip.custom(bg = "white"))
+```
+
+
+Row {data-height=350}
+-------------------------------------
+### Rede de Conexões
+
+A rede de conexões mostrada abaixo serve para mostrar as associações
+diretas entre os bigramas. 
+```{r, eval=FALSE}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtBj)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+simpleNetwork(net,
+              opacity = 0.8, 
+              linkColour= "violet", 
+              nodeColour="tomato", 
+              zoom=TRUE, fontSize = 16,
+              linkDistance = 70)
+```
+
+Row {data-height=1000}
+-------------------------------------
+### Rede de Conexões
+
+```{r, echo=FALSE, results='asis'}
+# Transforma a matriz de documentos e termos em data.frame
+m <- tidy(dtBj)
+
+# Constrói a base apropriada para fazer a rede
+net <- data.frame(m$term, m$count)
+names(net) <- c("Source", "Target")
+simpleNetwork(net,
+              opacity = 0.8, 
+              linkColour= "violet", 
+              nodeColour="tomato", 
+              zoom=TRUE, 
+              fontSize = 16,
+              linkDistance = 70)
+```
+
+Row {data-height=1950}
+-------------------------------------
+### Modelagem de Tópicos
+Mesmo não tendo muitas evidências de uma possível polarização,
+vamos utilizar uma abordagem de modelagem de tópicos, cujos métodos
+já foram explicados na introdução. Os códigos são explicados abaixo.
+Aqui, optamos por estimar apenas três tópicos, o que parece um número 
+razóavel. 
+
+```{r, echo=TRUE}
+# Utiliza a função do pacote stm para processar os dados
+temp <-textProcessor(documents=m$term, metadata=m)
+# Prepara os dados para a modelagem de tópicos
+out <- prepDocuments(temp$documents, temp$vocab, temp$meta)
+
+# Define a semente dos parâmetros iniciais
+set.seed(2015)
+
+# Faz a modelagem dividindo em 3 tópicos, em no máximo 10 iterações
+mod <- stm(out$documents, out$vocab, 3, 
+               data=out$meta, max.em.its = 10)
+# Resumo básico do modelo
+summary(mod)
+```
+
+Row {data-height=120}
+-------------------------------------
+### Gráfico do Modelo - Código
+
+O gráfico apresentado a seguir mostra as palavras de maior
+probabilidade de ocorrência em cada tópico. 
+```{r, eval=FALSE}
+# Gráfico que mostra as palavras de maior probabilidade em cada tópico
+plot(mod, type = "labels", labeltype = "prob")
+```
+
+Row 
+-------------------------------------
+### Gráfico do Modelo
+```{r, echo=FALSE}
+plot(mod, type = "labels", labeltype = "prob")
+```
+
+Row {data-height=750}
+-------------------------------------
+### Gráfico das palavras mais prováveis - código
+
+Para uma melhor descrição de cada tópico, mostramos um gráfico
+que traz as 30 palavras mais prováveis em cada um deles, que 
+deve representar o que já foi apresentado. 
+```{r, eval = FALSE}
+# Busca as log-verossimilhanças do modelo
+mm <- ldply(mod$beta$logbeta, data.frame)
+mm <- as.data.frame(t(mm))
+#--------
+# Atribui as log-verossimilhanças à cada palavra 
+par <- cbind(mod$vocab, mm)
+names(par) <- c("word", "Tópico 1", "Tópico 2", "Tópico 3")
+
+k <- 30
+
+# Ordena e organiza os dados
+tops <- lapply(par[, c("Tópico 1", "Tópico 2", "Tópico 3")],
+               FUN = function(x) {
+                 o <- head(order(x, decreasing = TRUE), n = k)
+                 data.frame(term = par$word[o],
+                            lprob = x[o])
+               })
+tops <- ldply(tops, .id = "topic")
+
+#--------- Gráfico
+barchart(term ~ lprob | topic,
+         data = tops,
+         ylab = "Termos mais frequentes em cada tópico",
+         xlab = "log da probabilidade de cada termo no tópico",
+         scales = "free",
+         layout = c(NA, 1),
+         prepanel = prepanel.pareto,
+         panel = panel.pareto,
+         col = "tomato")
+```
+
+
+Row 
+-------------------------------------
+### Gráfico das palavras mais prováveis 
+```{r, echo = FALSE}
+# Busca as log-verossimilhanças do modelo
+mm <- ldply(mod$beta$logbeta, data.frame)
+mm <- as.data.frame(t(mm))
+#--------
+# Atribui as log-verossimilhanças à cada palavra 
+par <- cbind(mod$vocab, mm)
+names(par) <- c("word", "Tópico 1", "Tópico 2", "Tópico 3")
+
+k <- 30
+
+# Ordena e organiza os dados
+tops <- lapply(par[, c("Tópico 1", "Tópico 2", "Tópico 3")],
+               FUN = function(x) {
+                 o <- head(order(x, decreasing = TRUE), n = k)
+                 data.frame(term = par$word[o],
+                            lprob = x[o])
+               })
+tops <- ldply(tops, .id = "topic")
+
+#--------- Gráfico
+barchart(term ~ lprob | topic,
+         data = tops,
+         ylab = "Termos mais frequentes em cada tópico",
+         xlab = "log da probabilidade de cada termo no tópico",
+         scales = "free",
+         layout = c(NA, 1),
+         prepanel = prepanel.pareto,
+         panel = panel.pareto,
+         col = "tomato")
+```
